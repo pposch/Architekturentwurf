@@ -294,57 +294,99 @@ Alle Event-Konsumenten (z. B. der Payment Service) müssen idempotent implemen
 # Infrastrukturkomponenten
 
 ```mermaid
-graph TD
+flowchart TD
+    subgraph External["Externe Clients"]
+        Client[Client]
+    end
 
-%% Frontend
-Client["User (Browser / Mobile App)"]
-Client --> APIGW["API Gateway<br/>(Azure API Management)"]
+    subgraph Gateway["API Gateway"]
+        APIGW["API Gateway\n- Auth\n- Rate Limiting\n- Routing"]
+    end
 
-%% Auth
-APIGW --> Auth["Auth Provider<br/>(Azure AD B2C / IdentityServer)"]
+    subgraph Auth["Authentication Provider"]
+        AuthService["Auth Service\n- JWT\n- SSO"]
+    end
 
-%% Core Services
-APIGW --> Booking[Booking Service]
-APIGW --> Payment[Payment Service]
-APIGW --> Room[Room Service]
-APIGW --> Customer[Customer Service]
-APIGW --> Invoice[Invoice Service]
-APIGW --> Notification[Notification Service]
+    subgraph Registry["Service Registry"]
+        ServiceRegistry["Service Registry\n- Discovery\n- Load Balancing"]
+    end
 
-%% Internal Communication
-Booking --> Room
-Booking -->|Event: BookingCreated| Broker["Message Broker<br/>(Azure Service Bus)"]
-Broker --> Payment
-Payment -->|Event: PaymentCompleted| Broker
-Broker --> Invoice
-Invoice -->|Event: InvoiceReady| Broker
-Broker --> Notification
+    subgraph Broker["Message Broker"]
+        MsgBroker["Message Broker\n- Events\n- Sagas\n- Retry"]
+    end
 
-%% Storage (each service owns its DB)
-Booking --> DB_Booking[(SQL DB)]
-Payment --> DB_Payment[(SQL DB)]
-Room --> DB_Room[(SQL DB)]
-Customer --> DB_Customer[(SQL DB)]
-Invoice --> DB_Invoice[(Blob Storage / SQL)]
-Notification --> DB_Notification[(Queue Logs)]
+    subgraph Outbox["Outbox / Event Store"]
+        OutboxSys["Outbox/Event Store\n- Garantierte Events\n- Konsistenz"]
+    end
 
-%% Supporting Infrastructure
-Auth --> Vault[Secrets: Azure Key Vault]
-All[All Services] -.-> Vault
-All -.-> Monitor["Monitoring<br/>(Azure Monitor / App Insights)"]
-All -.-> Registry["Service Registry<br/>(Istio / Dapr)"]
-All -.-> AKS["Kubernetes Cluster<br/>(Azure AKS)"]
-All -.-> CI["CI/CD Pipeline<br/>(Azure DevOps / GitHub Actions)"]
+    subgraph Secrets["Secrets Management"]
+        SecretsManager["Secrets Manager\n- Token Mgmt\n- Rotation"]
+    end
 
-%% Grouping for All Services
-subgraph All
-  Booking
-  Payment
-  Room
-  Customer
-  Invoice
-  Notification
-end
+    subgraph Monitoring["Monitoring & Tracing"]
+        MonitoringSys["Monitoring\n- Metriken\n- Traces\n- Logs"]
+    end
+
+    subgraph Orchestration["Container Orchestrator"]
+        OrchestratorSys["Orchestrator\n- Auto Scaling\n- Updates"]
+    end
+
+    subgraph CICD["CI/CD Pipeline"]
+        Pipeline["CI/CD\n- Build\n- Deployment\n- Tests"]
+    end
+
+    subgraph Storage["Storage & Datenbanken"]
+        DB1["Service A DB"]
+        DB2["Service B DB"]
+        DB3["Service C DB"]
+    end
+
+    subgraph Services["Microservices"]
+        ServiceA["Service A"]
+        ServiceB["Service B"]
+        ServiceC["Service C"]
+    end
+
+    Client --> APIGW
+    APIGW --> AuthService
+    APIGW --> ServiceRegistry
+    APIGW --> ServiceA
+    APIGW --> ServiceB
+    APIGW --> ServiceC
+
+    ServiceA --> DB1
+    ServiceB --> DB2
+    ServiceC --> DB3
+
+    ServiceA --> MsgBroker
+    ServiceB --> MsgBroker
+    ServiceC --> MsgBroker
+
+    MsgBroker --> ServiceA
+    MsgBroker --> ServiceB
+    MsgBroker --> ServiceC
+
+    ServiceA --> OutboxSys
+    ServiceB --> OutboxSys
+    ServiceC --> OutboxSys
+
+    ServiceA --> SecretsManager
+    ServiceB --> SecretsManager
+    ServiceC --> SecretsManager
+
+    ServiceA --> MonitoringSys
+    ServiceB --> MonitoringSys
+    ServiceC --> MonitoringSys
+
+    OrchestratorSys --> ServiceA
+    OrchestratorSys --> ServiceB
+    OrchestratorSys --> ServiceC
+
+    Pipeline --> OrchestratorSys
+    Pipeline --> APIGW
+    Pipeline --> Services
+
+    MonitoringSys --> SLA["SLA & Fehleranalyse"]
 ```
 
 ## API Gateway
