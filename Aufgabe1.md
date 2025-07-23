@@ -34,142 +34,403 @@ graph TD
   PAY -->|PaymentCompleted Event| INV
   INV -->|InvoiceReady Event| NOTIF
 ```
-1. Customer Service <br>
-- Zuständigkeit: <br>
-> Kundenprofile, Kontaktdaten, Registrierung, ggf. Login-Verbindung mit Auth. <br>
-- Begründung: <br>
-> Kundenverwaltung ist ein klar abgegrenzter Fachbereich. <br>
-> Wird unabhängig von Buchung oder Zahlung genutzt (z. B. Kundenprofil bearbeiten). <br>
-> Ermöglicht Datenschutzkonforme Verarbeitung (z. B. DSGVO-Löschung). <br>
+# Microservices und ihre Zuständigkeiten
 
-2. Booking Service <br>
-- Zuständigkeit: <br>
-> Buchung von Zimmern, Reservierung, Check-in/out, Stornierungen. <br>
-- Begründung: <br>
-> Kerndomäne des Systems (zentrale Geschäftslogik). <br>
-> Starke fachliche Trennung von Kunden- und Zahlungsdaten. <br>
-> Änderungen (z. B. Umbuchung, Regeln) sollen unabhängig testbar sein. <br>
+## 1. Customer Service
 
-3. Room Service <br>
-- Zuständigkeit: <br>
-> Verwaltung von Zimmern, Kategorien, Ausstattung, Verfügbarkeiten. <br>
-- Begründung: <br>
-> Zimmerdaten sind referenziert, aber unabhängig von Buchungen (z. B. Zimmer-Upgrades). <br>
-> Ermöglicht separate Pflege durch Hotel-Backoffice ohne Logik in Booking. <br>
-> Kapselt Zimmerverwaltung für Re-use (z. B. in Hotelverwaltungssystemen). <br>
+- **Zuständigkeit:**
+  - Kundenprofile, Kontaktdaten, Registrierung
+  - Ggf. Login-Verbindung mit Auth Service
 
-4. Payment Service <br>
-- Zuständigkeit: <br>
-> Zahlungsabwicklung, Rückerstattung, Zahlungsmethoden (z. B. Kreditkarte, PayPal). <br>
-- Begründung: <br>
-> Sicherheitstechnisch und regulatorisch (PCI-DSS) kritisch – gehört isoliert. <br>
-> Oft mit externen Providern gekoppelt (Stripe, Adyen). <br>
-> Muss besonders fehlerresilient und nachvollziehbar (Auditing) sein. <br>
+- **Begründung:**
+  - Kundenverwaltung ist ein klar abgegrenzter Fachbereich.
+  - Wird unabhängig von Buchung oder Zahlung genutzt (z. B. Kundenprofil bearbeiten).
+  - Ermöglicht datenschutzkonforme Verarbeitung (z. B. DSGVO-Löschung).
 
-5. Invoice Service <br>
-- Zuständigkeit: <br>
-> Rechnungserzeugung, steuerliche Berechnung, Rechnungsversand. <br>
-- Begründung: <br>
-> Unterschiedliche steuerliche Logik (z. B. Länderabhängigkeit). <br>
-> PDF-Generierung, Versand und Archivierung sind eigene Verantwortlichkeiten. <br>
-> Kann Trigger von Zahlung oder Buchung benötigen – spricht für Event-Handling. <br>
+---
 
-6. Notification Service <br>
-- Zuständigkeit: <br>
-> E-Mail- und SMS-Versand für Buchungsbestätigungen, Rechnungen etc. <br>
-- Begründung: <br>
-> Reine Infrastrukturkomponente. <br>
-> Ermöglicht lose Kopplung zu anderen Services durch asynchrone Events. <br>
-> Kann einfach skalieren und durch externe Provider ersetzt werden (z. B. SendGrid). <br>
+## 2. Booking Service
 
-8. Auth Service <br>
-- Zuständigkeit: <br>
-> Authentifizierung (z. B. OAuth2), Token-Ausgabe, Login-Prozesse. <br>
-- Begründung: <br>
-> Trennung von fachlichen Daten (Customer) und sicherheitsrelevanter Authentifizierung. <br>
-> Wiederverwendbar für interne Tools, Admin-Oberfläche etc. <br>
-> Bei Bedarf an externe Identity Provider auslagerbar. <br>
-- Anmerkungen:  <br>
-> Den Auth Service habe ich ausßerhalb des Microservices Block dargestellt da dieser Service eine besondere Rolle als Infrastruktur- und Security-Komponente darstellt und meist an externe Systeme wie Aurth0 oder Azure AD delegiert wird.
+- **Zuständigkeit:**
+  - Buchung von Zimmern, Reservierung
+  - Check-in/Check-out, Stornierungen
 
-<h2>Kommunikation der Services</h2>
+- **Begründung:**
+  - Kerndomäne des Systems (zentrale Geschäftslogik).
+  - Starke fachliche Trennung von Kunden- und Zahlungsdaten.
+  - Änderungen (z. B. Umbuchung, Regeln) sollen unabhängig testbar sein.
+
+---
+
+## 3. Room Service
+
+- **Zuständigkeit:**
+  - Verwaltung von Zimmern, Kategorien, Ausstattung
+  - Verfügbarkeiten
+
+- **Begründung:**
+  - Zimmerdaten sind referenziert, aber unabhängig von Buchungen (z. B. Zimmer-Upgrades).
+  - Ermöglicht separate Pflege durch Hotel-Backoffice ohne Logik in Booking.
+  - Kapselt Zimmerverwaltung für Re-Use (z. B. in Hotelverwaltungssystemen).
+
+---
+
+## 4. Payment Service
+
+- **Zuständigkeit:**
+  - Zahlungsabwicklung, Rückerstattung
+  - Zahlungsmethoden (z. B. Kreditkarte, PayPal)
+
+- **Begründung:**
+  - Sicherheitstechnisch und regulatorisch (PCI-DSS) kritisch – gehört isoliert.
+  - Oft mit externen Providern gekoppelt (Stripe, Adyen).
+  - Muss besonders fehlerresilient und nachvollziehbar (Auditing) sein.
+
+---
+
+## 5. Invoice Service
+
+- **Zuständigkeit:**
+  - Rechnungserzeugung, steuerliche Berechnung
+  - Rechnungsversand
+
+- **Begründung:**
+  - Unterschiedliche steuerliche Logik (z. B. Länderabhängigkeit).
+  - PDF-Generierung, Versand und Archivierung sind eigene Verantwortlichkeiten.
+  - Kann Trigger von Zahlung oder Buchung benötigen – spricht für Event-Handling.
+
+---
+
+## 6. Notification Service
+
+- **Zuständigkeit:**
+  - E-Mail- und SMS-Versand für Buchungsbestätigungen, Rechnungen etc.
+
+- **Begründung:**
+  - Reine Infrastrukturkomponente.
+  - Ermöglicht lose Kopplung zu anderen Services durch asynchrone Events.
+  - Kann einfach skalieren und durch externe Provider ersetzt werden (z. B. SendGrid).
+
+---
+
+## 7. Auth Service
+
+- **Zuständigkeit:**
+  - Authentifizierung (z. B. OAuth2), Token-Ausgabe, Login-Prozesse
+
+- **Begründung:**
+  - Trennung von fachlichen Daten (Customer) und sicherheitsrelevanter Authentifizierung.
+  - Wiederverwendbar für interne Tools, Admin-Oberfläche etc.
+  - Bei Bedarf an externe Identity Provider auslagerbar.
+
+- **Anmerkung:**
+  - Der Auth Service wurde außerhalb des Microservices-Blocks dargestellt, da dieser Service eine besondere Rolle als Infrastruktur- und Security-Komponente spielt und meist an externe Systeme wie Auth0 oder Azure AD delegiert wird.
+
+<h1>Kommunikation der Services</h1>
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant User
+    participant API as API Gateway
+    participant Booking as Booking Service
+    participant Room as Room Service
+    participant Payment as Payment Service
+    participant Invoice as Invoice Service
+    participant Notification as Notification Service
+
+    User->>API: POST /bookings
+    API->>Booking: POST /bookings
+    Booking->>Room: GET /rooms/{id}/availability
+    Room-->>Booking: Availability OK
+    Booking-->>API: 201 Created
+    Booking-->>Payment: Event: BookingCreated
+
+    activate Payment
+    Payment-->>Booking: REST: GET booking details
+    Payment->>User: (falls nötig) Redirect to payment gateway
+    Payment-->>Invoice: Event: PaymentCompleted
+    deactivate Payment
+
+    activate Invoice
+    Invoice->>Booking: REST: GET booking info
+    Invoice->>Customer: REST: GET customer info
+    Invoice-->>Notification: Event: InvoiceReady
+    deactivate Invoice
+
+    activate Notification
+    Notification->>Customer: REST: GET email address
+    Notification-->>Customer: Send email with invoice
+    deactivate Notification
+```
+## Schritt 1–3: User bucht über API
+
+- **Aktion:** Der Benutzer sendet über die Web- oder Mobile-App eine Buchungsanfrage.
+- **Kommunikationstyp:** REST (HTTP)
+- **Begründung:**
+  - Dies ist eine synchrone Benutzerinteraktion: Der User erwartet eine unmittelbare Rückmeldung (z. B. ob die Buchung erfolgreich war).
+  - REST ist einfach zu implementieren und eignet sich gut für CRUD-Operationen im Frontend-Kontext.
+
+---
+
+## Schritt 4: Verfügbarkeit prüfen
+
+- **Aktion:** Der Booking Service fragt beim Room Service an, ob das gewünschte Zimmer verfügbar ist.
+- **Kommunikationstyp:** REST (HTTP)
+- **Begründung:**
+  - Die Verfügbarkeit muss in Echtzeit synchron geprüft werden, da der Buchungsprozess nicht ohne diese Information fortgesetzt werden kann.
+  - Der Room Service ist zuständig für Live-Zimmerdaten, und REST ermöglicht einfache und schnelle Punkt-zu-Punkt-Kommunikation.
+
+---
+
+## Schritt 5: Buchung gespeichert
+
+- **Aktion:** Der Booking Service speichert die Buchung und bestätigt sie dem User.
+- **Kommunikationstyp:** REST
+- **Begründung:**
+  - Die Bestätigung der Buchung ist Teil des initialen synchronen API-Aufrufs.
+  - Eine sofortige Rückmeldung ist erforderlich, um dem User eine klare Reaktion zu geben (z. B. "Ihre Buchung war erfolgreich").
+
+---
+
+## Schritt 6: Event `BookingCreated`
+
+- **Aktion:** Der Booking Service sendet ein Event mit der Buchungs-ID an den Message Broker.
+- **Kommunikationstyp:** Eventing (asynchron)
+- **Begründung:**
+  - Die Zahlung muss nicht sofort erfolgen, sondern kann nachgelagert und unabhängig erfolgen.
+  - Durch asynchrone Event-Kommunikation wird der Booking Service nicht blockiert und kann sofort andere Buchungen annehmen.
+
+---
+
+## Schritt 7–8: Zahlung wird verarbeitet
+
+- **Aktion:** Der Payment Service empfängt das `BookingCreated`-Event, startet ggf. den Bezahlprozess (z. B. Weiterleitung zu Stripe/PayPal).
+- **Kommunikationstyp:** REST + Eventing
+- **Begründung:**
+  - Der Eventempfang ist asynchron (Eventing), aber die Bezahllogik (z. B. Redirect, Payment Gateway) erfordert synchrones Verhalten (REST).
+  - Die Kombination beider Methoden ermöglicht technische Flexibilität und Benutzerinteraktion.
+
+---
+
+## Schritt 9: Event `PaymentCompleted`
+
+- **Aktion:** Nach erfolgreicher Zahlung sendet der Payment Service ein Event, das den nächsten Prozess auslöst.
+- **Kommunikationstyp:** Eventing (asynchron)
+- **Begründung:**
+  - Die Rechnung muss nicht in Echtzeit erzeugt werden.
+  - Ein asynchrones Event stellt sicher, dass der Invoice Service entkoppelt vom Zahlungsvorgang ist und bei Bedarf horizontal skaliert werden kann.
+
+---
+
+## Schritt 10–12: Rechnung wird erzeugt
+
+- **Aktion:** Der Invoice Service empfängt das Event `PaymentCompleted`, ruft nötige Daten ab (z. B. Buchung, Kundendaten), generiert die Rechnung und sendet ein Event `InvoiceReady`.
+- **Kommunikationstyp:** REST + Eventing
+- **Begründung:**
+  - Für die Rechnung werden detaillierte Daten benötigt (z. B. Buchungsdetails, Steuerinformationen).
+  - Diese werden synchron über REST vom Booking- und Customer Service abgefragt.
+  - Danach wird durch Eventing (`InvoiceReady`) die Benachrichtigung eingeleitet – lose Kopplung & Erweiterbarkeit.
+
+---
+
+## Schritt 13–14: Rechnung wird versendet
+
+- **Aktion:** Der Notification Service erhält das Event `InvoiceReady`, holt sich die E-Mail-Adresse und versendet die Rechnung.
+- **Kommunikationstyp:** REST
+- **Begründung:**
+  - Der Versand ist automatisiert, muss aber die korrekten Empfängerdaten synchron vom Customer Service abrufen.
+  - Durch REST kann sich der Notification-Service aktuelle Kundendaten holen, ohne diese dauerhaft zu speichern (→ Datenschutz, DSGVO).
+
+<h1>Datenkonsistenz zwischen Buchung und Zahlung</h1>
+
+Ansteller einer zentrale Transaktion kann man die Konsistenz zwischen Booking und Payment durch durch
+> Verteilte, robuste Eventverarbeitung
+> Klare Zustandsübergänge via Domain Events
+> Resiliente Wiederholbarkeit
+sichergestellt werden.
+
+Ziel ist eine skalierbare, ausfallsichere und konsistente Architektur, ohne die Nachteile klassischer, starrer Transaktionsmodelle.
+Errecht wird dies durch die verwendung folgender pattern:
+
+## 1. Saga Pattern
+
+Die **Buchung** und die **Zahlung** bilden gemeinsam eine verteilte Transaktion.
+
+- Jeder Microservice führt nur seine lokale Transaktion aus.
+- Nach erfolgreicher Ausführung sendet der Service ein Event.
+- Es gibt keinen globalen Transaktionsmanager (z. B. kein Two-Phase Commit).
+- Jeder Schritt ist atomar und kommuniziert über asynchrone Events mit den anderen Teilnehmern.
+
+> Vorteil: Hohe Entkopplung der Services und gute Skalierbarkeit durch Event-basierte Kommunikation.
+
+---
+
+## 2. Outbox Pattern – Zuverlässige Event-Zustellung
+
+Beim Schreiben in die Datenbank und dem gleichzeitigen Versenden eines Events kann ein Event verloren gehen, etwa bei einem plötzlichen Absturz des Services.
+
+Das Outbox Pattern verhindert dieses Problem durch:
+
+- Speichern des Events in einer Outbox-Tabelle in derselben Datenbank-Transaktion wie die Geschäftsdaten.
+- Ein separater Prozess (z. B. Event Publisher) liest die Outbox regelmäßig aus und versendet Events zuverlässig.
+- Gesendete Events werden z. B. durch ein Flag markiert oder gelöscht – Doppelsendungen werden vermieden.
+
+> Vorteil: Zuverlässige Zustellung ohne Dateninkonsistenzen – die Event-Publikation ist eng mit der Buchung verknüpft.
+
+---
+
+## 3. Idempotenz – Wiederholbarkeit sicherstellen
+
+Alle Event-Konsumenten (z. B. der Payment Service) müssen idempotent implementiert sein:
+
+- Ein Event kann aus verschiedenen Gründen mehrfach ankommen.
+- Die Verarbeitung darf keine unerwünschten Seiteneffekte erzeugen – selbst wenn das Event doppelt oder mehrfach verarbeitet wird.
+
+> Beispiel: Eine Zahlung darf nicht zweimal ausgelöst werden, wenn das Event zweimal verarbeitet wird.
+
+---
+
+# Infrastrukturkomponenten
 
 ```mermaid
 graph TD
-  APIGW[API Gateway]
-  APIGW -->|REST| BOOK[Booking Service]
-  APIGW -->|REST| CUST[Customer Service]
-  APIGW -->|REST| ROOM[Room Service]
-  APIGW -->|REST| AUTH[Auth Service]
 
-  BOOK --> BookingCreated -->|Async Event| PAY[Payment Service]
-  PAY --> PaymentCompleted -->|Async Event| INV[Invoice Service]
-  INV --> InvoiceReady -->|Async Event| NOTIF[Notification Service]
+%% Frontend
+Client["User (Browser / Mobile App)"]
+Client --> APIGW["API Gateway<br/>(Azure API Management)"]
 
-  BOOK -->|REST| ROOM
-  BOOK -->|REST| CUST
+%% Auth
+APIGW --> Auth["Auth Provider<br/>(Azure AD B2C / IdentityServer)"]
+
+%% Core Services
+APIGW --> Booking[Booking Service]
+APIGW --> Payment[Payment Service]
+APIGW --> Room[Room Service]
+APIGW --> Customer[Customer Service]
+APIGW --> Invoice[Invoice Service]
+APIGW --> Notification[Notification Service]
+
+%% Internal Communication
+Booking --> Room
+Booking -->|Event: BookingCreated| Broker["Message Broker<br/>(Azure Service Bus)"]
+Broker --> Payment
+Payment -->|Event: PaymentCompleted| Broker
+Broker --> Invoice
+Invoice -->|Event: InvoiceReady| Broker
+Broker --> Notification
+
+%% Storage (each service owns its DB)
+Booking --> DB_Booking[(SQL DB)]
+Payment --> DB_Payment[(SQL DB)]
+Room --> DB_Room[(SQL DB)]
+Customer --> DB_Customer[(SQL DB)]
+Invoice --> DB_Invoice[(Blob Storage / SQL)]
+Notification --> DB_Notification[(Queue Logs)]
+
+%% Supporting Infrastructure
+Auth --> Vault[Secrets: Azure Key Vault]
+All[All Services] -.-> Vault
+All -.-> Monitor["Monitoring<br/>(Azure Monitor / App Insights)"]
+All -.-> Registry["Service Registry<br/>(Istio / Dapr)"]
+All -.-> AKS["Kubernetes Cluster<br/>(Azure AKS)"]
+All -.-> CI["CI/CD Pipeline<br/>(Azure DevOps / GitHub Actions)"]
+
+%% Grouping for All Services
+subgraph All
+  Booking
+  Payment
+  Room
+  Customer
+  Invoice
+  Notification
+end
 ```
 
-1. API Gateway → Microservices <br>
-- REST (HTTP): <br>
-> Externe Clients (Web/Apps) erwarten schnelle, synchrone Antworten (z. B. Buchung abschicken, Rechnungs-PDF anzeigen). <br>
-> Einfach, transparent, geeignet für lesende Operationen. <br>
+## API Gateway
 
-2. Booking Service ↔ Room Service <br>
-- REST (synchron): <br>
-> Bei einer Buchung muss die aktuelle Verfügbarkeit eines Zimmers geprüft werden (z. B. GET /rooms/{id}/availability). <br>
-> Enge zeitliche Kopplung erforderlich – synchroner Zugriff sinnvoll. <br>
-> Caching auf Booking-Seite möglich, um REST-Aufrufe zu minimieren. <br>
+- **Funktion:** Zentrale Schnittstelle für externe Clients
+- **Details:**
+  - Bündelt alle REST-Endpunkte
+  - Setzt Authentifizierung, Rate Limiting und Routing um
 
-3. Booking Service → Payment Service <br>
-- Eventing (asynchron, über Message Broker): <br>
-> z. B. Event BookingCreated <br>
-> Buchung erzeugt Event, Zahlung erfolgt asynchron (User muss evtl. noch bezahlen). <br>
-> Loose Coupling, keine Wartezeit nötig. <br>
-> Technologien: Azure Service Bus, RabbitMQ, Apache Kafka <br>
+---
 
-4. Payment Service → Invoice Service <br>
-- Eventing (asynchron): <br>
-> z. B. Event PaymentCompleted <br>
-> Die Rechnung wird nach erfolgreicher Zahlung erzeugt. <br>
-> Lose Kopplung, leicht zu erweitern (z. B. weitere Services wie Loyalty Points hinzufügen). <br>
-> Resilient gegen temporäre Ausfälle (z. B. Invoice-Queue puffert Event). <br>
+## Service Registry
 
-5. Invoice Service → Notification Service <br>
-- Messaging (asynchron): <br>
-> Rechnung wurde erzeugt → E-Mail mit Anhang versenden. <br>
-> Kein Rückgabewert nötig, Entkopplung erhöht Resilienz. <br>
+- **Funktion:** Verzeichnis für verfügbare Services
+- **Details:**
+  - Ermöglicht dynamisches Service Discovery & Load Balancing
+  - Unterstützt Resilienz und horizontale Skalierung
 
-6. Customer Service ↔ Booking/Payment <br>
-- REST oder Eventing: <br>
-> REST: GET /customers/{id} → Daten abrufen <br>
-> Eventing: CustomerDeleted → Storniere alle offenen Buchungen <br>
-> CRUD-Anfragen synchron, systemische Änderungen (z. B. Löschung) über Eventing <br>
+---
 
-7. Auth Service <br>
-- REST (synchron) – nur mit API Gateway: <br>
-> Authentifizierung muss direkt und zuverlässig beim Login erfolgen. <br>
-> JWT-Token-Verifikation erfolgt im API Gateway, Services verifizieren ggf. Signatur lokal (kein erneuter Aufruf nötig → Performance). <br>
+## Message Broker
 
-<h2> Beispiel </h2>
+- **Funktion:** Asynchrone Kommunikation & Eventing
+- **Details:**
+  - Ermöglicht lose Kopplung zwischen Services
+  - Unterstützt Sagas, Events & Retry-Mechanismen
 
-User → API Gateway → POST /booking
+---
 
-1. Booking Service:
-> prüft Zimmerverfügbarkeit via REST → Room Service  
-> speichert Buchung lokal  
-> sendet Event `BookingCreated`
+## Outbox System / Event Store
 
-2. Payment Service:
-> empfängt Event `BookingCreated`  
-> startet Bezahlprozess  
-> bei Erfolg: sendet Event `PaymentCompleted`
+- **Funktion:** Garantierte Event-Zustellung
+- **Details:**
+  - Verhindert Eventverlust bei Serviceabstürzen
+  - Garantiert Konsistenz zwischen Datenbankoperationen und Events
 
-3. Invoice Service:
-> empfängt Event `PaymentCompleted`  
-> erzeugt Rechnung  
-> sendet Event `InvoiceReady`
+---
 
-4. Notification Service:
-> empfängt Event `InvoiceReady`  
-> versendet E-Mail mit PDF
+## Authentication Provider
+
+- **Funktion:** Authentifizierung & Token-Handling
+- **Details:**
+  - Zentrale User-Identität und Single Sign-On (SSO)
+  - Liefert JWTs für Zugriffskontrolle auf Services
+
+---
+
+## Secrets Management
+
+- **Funktion:** Sichere Verwaltung von Passwörtern, Tokens etc.
+- **Details:**
+  - Verhindert hartcodierte Geheimnisse
+  - Ermöglicht zentrale Rotation und Zugriffskontrolle
+
+---
+
+## Monitoring & Tracing
+
+- **Funktion:** Überwachung & Fehlerdiagnose
+- **Details:**
+  - Erfasst Metriken, Logs und verteilte Traces
+  - Unterstützt SLA-Einhaltung und Ursachenanalyse
+
+---
+
+## Container Orchestrator
+
+- **Funktion:** Deployment, Skalierung, Isolation von Services
+- **Details:**
+  - Führt Microservices containerisiert aus
+  - Ermöglicht Auto-Scaling, Self-Healing und Rolling Updates
+
+---
+
+## CI/CD Pipeline
+
+- **Funktion:** Automatisierter Build & Deployment
+- **Details:**
+  - Sichert schnelle, wiederholbare Auslieferung
+  - Unterstützt Rollbacks & automatisierte Tests
+
+---
+
+## Storage & Datenbanken
+
+- **Funktion:** Persistente Datenspeicherung pro Service
+- **Details:**
+  - Jeder Service besitzt eine eigene Datenbank ("Database per Service")
+  - Ermöglicht gezielte Optimierung und Datenisolation
