@@ -1,3 +1,23 @@
+# Lösung Technical Assessment – Senior Entwickler (.NET / Azure)
+
+## Aufgabe 1: Architektur & Domain Design – Monolith zu Microservices
+
+### Teil A – Microservice-Architekturentwurf
+
+#### 1. Aufteilung in Microservices
+
+| Microservice                 | Verantwortlichkeiten                                              |
+| ---------------------------- | ----------------------------------------------------------------- |
+| **Customer Service**         | Verwaltung von Kundendaten (Anlegen, Ändern, Abfragen)            |
+| **Room Service**             | Verwaltung von Zimmern (Verfügbarkeit, Eigenschaften)             |
+| **Booking Service**          | Erstellen und Verwalten von Buchungen                             |
+| **Payment Service**          | Abwicklung von Zahlungen (Überweisung, Kreditkarte, etc.)         |
+| **Invoice Service**          | Erstellen und Versenden von Rechnungen                            |
+| **Notification Service**     | Versand von E-Mails/SMS (Buchungsbestätigung, Zahlungserinnerung) |
+| **Auth Service**             | Authentifizierung, Token-Ausgabe, Login-Prozesse                  |
+
+**Begründung:** Jeder Service kapselt eine fachliche Kernfunktion und isoliert Zuständigkeiten, was unabhängige Deployments und Skalierung ermöglicht.
+
 ```mermaid
 graph TD
   subgraph Gateway
@@ -34,99 +54,26 @@ graph TD
   PAY -->|PaymentCompleted Event| INV
   INV -->|InvoiceReady Event| NOTIF
 ```
-# Microservices und ihre Zuständigkeiten
 
-## 1. Customer Service
+#### 2. Kommunikation zwischen Services
 
-- **Zuständigkeit:**
-  - Kundenprofile, Kontaktdaten, Registrierung
-  - Ggf. Login-Verbindung mit Auth Service
+Das folgende Sequenzdiagramm stellt den vollständigen Kommunikationsfluss vom Benutzer bis hin zum Versand der Rechnung dar. Es kombiniert synchrone REST-Aufrufe mit asynchronem Event-basierten Messaging.
 
-- **Begründung:**
-  - Kundenverwaltung ist ein klar abgegrenzter Fachbereich.
-  - Wird unabhängig von Buchung oder Zahlung genutzt (z. B. Kundenprofil bearbeiten).
-  - Ermöglicht datenschutzkonforme Verarbeitung (z. B. DSGVO-Löschung).
+* **Schritte 1–5:** Der Benutzer tätigt eine Buchung über das Frontend. Das System überprüft die Zimmerverfügbarkeit synchron und erstellt eine Buchung.
 
----
+* **Schritt 6:** Nach erfolgreicher Buchung wird ein `BookingCreated`-Event gesendet.
 
-## 2. Booking Service
+* **Schritte 7–8:** Der Payment Service verarbeitet das Event und startet den Bezahlprozess.
 
-- **Zuständigkeit:**
-  - Buchung von Zimmern, Reservierung
-  - Check-in/Check-out, Stornierungen
+* **Schritt 9:** Nach erfolgreicher Zahlung wird ein `PaymentCompleted`-Event versendet.
 
-- **Begründung:**
-  - Kerndomäne des Systems (zentrale Geschäftslogik).
-  - Starke fachliche Trennung von Kunden- und Zahlungsdaten.
-  - Änderungen (z. B. Umbuchung, Regeln) sollen unabhängig testbar sein.
+* **Schritte 10–12:** Der Invoice Service erzeugt die Rechnung basierend auf Booking- und Kundendaten.
 
----
+* **Schritte 13–14:** Die Rechnung wird über den Notification Service an den Kunden verschickt.
 
-## 3. Room Service
+* **REST** für synchrone Abfragen (z. B. Kundenservice → Buchungsservice)
 
-- **Zuständigkeit:**
-  - Verwaltung von Zimmern, Kategorien, Ausstattung
-  - Verfügbarkeiten
-
-- **Begründung:**
-  - Zimmerdaten sind referenziert, aber unabhängig von Buchungen (z. B. Zimmer-Upgrades).
-  - Ermöglicht separate Pflege durch Hotel-Backoffice ohne Logik in Booking.
-  - Kapselt Zimmerverwaltung für Re-Use (z. B. in Hotelverwaltungssystemen).
-
----
-
-## 4. Payment Service
-
-- **Zuständigkeit:**
-  - Zahlungsabwicklung, Rückerstattung
-  - Zahlungsmethoden (z. B. Kreditkarte, PayPal)
-
-- **Begründung:**
-  - Sicherheitstechnisch und regulatorisch (PCI-DSS) kritisch – gehört isoliert.
-  - Oft mit externen Providern gekoppelt (Stripe, Adyen).
-  - Muss besonders fehlerresilient und nachvollziehbar (Auditing) sein.
-
----
-
-## 5. Invoice Service
-
-- **Zuständigkeit:**
-  - Rechnungserzeugung, steuerliche Berechnung
-  - Rechnungsversand
-
-- **Begründung:**
-  - Unterschiedliche steuerliche Logik (z. B. Länderabhängigkeit).
-  - PDF-Generierung, Versand und Archivierung sind eigene Verantwortlichkeiten.
-  - Kann Trigger von Zahlung oder Buchung benötigen – spricht für Event-Handling.
-
----
-
-## 6. Notification Service
-
-- **Zuständigkeit:**
-  - E-Mail- und SMS-Versand für Buchungsbestätigungen, Rechnungen etc.
-
-- **Begründung:**
-  - Reine Infrastrukturkomponente.
-  - Ermöglicht lose Kopplung zu anderen Services durch asynchrone Events.
-  - Kann einfach skalieren und durch externe Provider ersetzt werden (z. B. SendGrid).
-
----
-
-## 7. Auth Service
-
-- **Zuständigkeit:**
-  - Authentifizierung (z. B. OAuth2), Token-Ausgabe, Login-Prozesse
-
-- **Begründung:**
-  - Trennung von fachlichen Daten (Customer) und sicherheitsrelevanter Authentifizierung.
-  - Wiederverwendbar für interne Tools, Admin-Oberfläche etc.
-  - Bei Bedarf an externe Identity Provider auslagerbar.
-
-- **Anmerkung:**
-  - Der Auth Service wurde außerhalb des Microservices-Blocks dargestellt, da dieser Service eine besondere Rolle als Infrastruktur- und Security-Komponente spielt und meist an externe Systeme wie Auth0 oder Azure AD delegiert wird.
-
-<h1>Kommunikation der Services</h1>
+* **AMQP Messaging** (z. B. RabbitMQ oder Azure Service Bus) für asynchrone Events
 
 ```mermaid
 sequenceDiagram
@@ -163,316 +110,292 @@ sequenceDiagram
     Notification-->>Customer: Send email with invoice
     deactivate Notification
 ```
-## Schritt 1–3: User bucht über API
 
-- **Aktion:** Der Benutzer sendet über die Web- oder Mobile-App eine Buchungsanfrage.
-- **Kommunikationstyp:** REST (HTTP)
-- **Begründung:**
-  - Dies ist eine synchrone Benutzerinteraktion: Der User erwartet eine unmittelbare Rückmeldung (z. B. ob die Buchung erfolgreich war).
-  - REST ist einfach zu implementieren und eignet sich gut für CRUD-Operationen im Frontend-Kontext.
+#### 3. Datenkonsistenz
 
----
+* **SAGA Pattern (Choreography)**
 
-## Schritt 4: Verfügbarkeit prüfen
+  * Jeder Service führt lokale Transaktion aus und publiziert Events
+  * Kompensation bei Fehlern (z. B. `BookingCancelled` wenn Zahlung fehlschlägt)
+* **Outbox Pattern**
 
-- **Aktion:** Der Booking Service fragt beim Room Service an, ob das gewünschte Zimmer verfügbar ist.
-- **Kommunikationstyp:** REST (HTTP)
-- **Begründung:**
-  - Die Verfügbarkeit muss in Echtzeit synchron geprüft werden, da der Buchungsprozess nicht ohne diese Information fortgesetzt werden kann.
-  - Der Room Service ist zuständig für Live-Zimmerdaten, und REST ermöglicht einfache und schnelle Punkt-zu-Punkt-Kommunikation.
+  * Speicherung von Events in einer Outbox-Tabelle innerhalb derselben DB-Transaktion wie die Geschäftsdaten
+  * Separater Publisher-Prozess liest Outbox aus und sendet Events zuverlässig
+  * Markierung oder Löschung versendeter Events zur Vermeidung von Doppelsendungen
+* **Idempotente Verarbeitung**
 
----
+  * Event-Konsumenten müssen mehrfaches Eintreffen eines Events erkennen und korrekt behandeln
+  * Verhindert doppelte Aktionen (z. B. doppelte Zahlungen)
 
-## Schritt 5: Buchung gespeichert
+#### 4. Infrastruktur-Komponenten
 
-- **Aktion:** Der Booking Service speichert die Buchung und bestätigt sie dem User.
-- **Kommunikationstyp:** REST
-- **Begründung:**
-  - Die Bestätigung der Buchung ist Teil des initialen synchronen API-Aufrufs.
-  - Eine sofortige Rückmeldung ist erforderlich, um dem User eine klare Reaktion zu geben (z. B. "Ihre Buchung war erfolgreich").
+* **API Gateway:** Azure API Management für Routing, Authentifizierung, Throttling
+* **Service Registry:** Azure Service Fabric oder Consul für Service Discovery und Load Balancing
+* **Message Broker:** Azure Service Bus oder RabbitMQ für asynchrone Kommunikation
+* **Configuration Management:** Azure App Configuration für zentrale Einstellungen
+* **Monitoring & Tracing:** Azure Application Insights und Log Analytics (OpenTelemetry) für verteiltes Tracing, Metriken und Log-Auswertung
+* **Secrets Management:** Azure Key Vault für sichere Speicherung und Rotation von Schlüsseln und Zertifikaten
 
----
+#### 5. Authentifizierung & Autorisierung
 
-## Schritt 6: Event `BookingCreated`
+Ein zentrales Authentifizierungs- und Autorisierungskonzept ist entscheidend für die Sicherheit der Microservice-Landschaft. Ziel ist es, Authentifizierung zentralisiert zu halten, während Autorisierung dezentral in jedem Service geprüft wird.
 
-- **Aktion:** Der Booking Service sendet ein Event mit der Buchungs-ID an den Message Broker.
-- **Kommunikationstyp:** Eventing (asynchron)
-- **Begründung:**
-  - Die Zahlung muss nicht sofort erfolgen, sondern kann nachgelagert und unabhängig erfolgen.
-  - Durch asynchrone Event-Kommunikation wird der Booking Service nicht blockiert und kann sofort andere Buchungen annehmen.
+* **Identity Provider:** Azure AD B2C, IdentityServer4 oder Azure AD
 
----
+  * Zuständig für Benutzerverwaltung, Login, Passwort-Reset, Token-Ausstellung.
 
-## Schritt 7–8: Zahlung wird verarbeitet
+* **OAuth2 / OpenID Connect:**
 
-- **Aktion:** Der Payment Service empfängt das `BookingCreated`-Event, startet ggf. den Bezahlprozess (z. B. Weiterleitung zu Stripe/PayPal).
-- **Kommunikationstyp:** REST + Eventing
-- **Begründung:**
-  - Der Eventempfang ist asynchron (Eventing), aber die Bezahllogik (z. B. Redirect, Payment Gateway) erfordert synchrones Verhalten (REST).
-  - Die Kombination beider Methoden ermöglicht technische Flexibilität und Benutzerinteraktion.
+  * Für Autorisierung und Authentifizierung mit Access Tokens (z. B. JWT).
+  * Token enthalten Claims (z. B. User-ID, Rollen, Scopes), die von den Microservices interpretiert werden können.
 
----
+* **API Gateway:**
 
-## Schritt 9: Event `PaymentCompleted`
+  * Validiert eingehende JWT-Tokens (Signatur, Ablaufzeit, Issuer)
+  * Leitet Anfragen nur bei gültigen Tokens an nachgelagerte Services weiter
+  * Optional: Weitergabe von Claims als HTTP-Headers an die Microservices
 
-- **Aktion:** Nach erfolgreicher Zahlung sendet der Payment Service ein Event, das den nächsten Prozess auslöst.
-- **Kommunikationstyp:** Eventing (asynchron)
-- **Begründung:**
-  - Die Rechnung muss nicht in Echtzeit erzeugt werden.
-  - Ein asynchrones Event stellt sicher, dass der Invoice Service entkoppelt vom Zahlungsvorgang ist und bei Bedarf horizontal skaliert werden kann.
+* **RBAC (Role-Based Access Control):**
 
----
+  * Jeder Microservice prüft selbstständig die erforderlichen Berechtigungen auf Basis der übermittelten Claims.
+  * Beispiel: `BookingService` erlaubt Buchung nur mit Rolle `Customer`, `InvoiceService` nur mit Rolle `Admin` Zugriff auf Rechnungsdaten.
 
-## Schritt 10–12: Rechnung wird erzeugt
+* **Zero-Trust-Prinzip:**
 
-- **Aktion:** Der Invoice Service empfängt das Event `PaymentCompleted`, ruft nötige Daten ab (z. B. Buchung, Kundendaten), generiert die Rechnung und sendet ein Event `InvoiceReady`.
-- **Kommunikationstyp:** REST + Eventing
-- **Begründung:**
-  - Für die Rechnung werden detaillierte Daten benötigt (z. B. Buchungsdetails, Steuerinformationen).
-  - Diese werden synchron über REST vom Booking- und Customer Service abgefragt.
-  - Danach wird durch Eventing (`InvoiceReady`) die Benachrichtigung eingeleitet – lose Kopplung & Erweiterbarkeit.
+  * Jeder Microservice vertraut niemals blind auf interne Anfragen
+  * Validierung und Prüfung erfolgen unabhängig pro Service
 
----
+* **Token-Gültigkeit und Refresh:**
 
-## Schritt 13–14: Rechnung wird versendet
+  * Access Token haben kurze Lebensdauer
+  * Refresh Tokens ermöglichen erneute Authentifizierung ohne erneuten Login
 
-- **Aktion:** Der Notification Service erhält das Event `InvoiceReady`, holt sich die E-Mail-Adresse und versendet die Rechnung.
-- **Kommunikationstyp:** REST
-- **Begründung:**
-  - Der Versand ist automatisiert, muss aber die korrekten Empfängerdaten synchron vom Customer Service abrufen.
-  - Durch REST kann sich der Notification-Service aktuelle Kundendaten holen, ohne diese dauerhaft zu speichern (→ Datenschutz, DSGVO).
+* **Single Sign-On (SSO):**
 
-<h1>Datenkonsistenz zwischen Buchung und Zahlung</h1>
+  * Für User-Experience über mehrere Frontends hinweg (z. B. Web + Mobile)
 
-Ansteller einer zentrale Transaktion kann man die Konsistenz zwischen Booking und Payment durch durch
-> Verteilte, robuste Eventverarbeitung
-> Klare Zustandsübergänge via Domain Events
-> Resiliente Wiederholbarkeit
-sichergestellt werden.
+* **Security Best Practices:**
 
-Ziel ist eine skalierbare, ausfallsichere und konsistente Architektur, ohne die Nachteile klassischer, starrer Transaktionsmodelle.
-Errecht wird dies durch die verwendung folgender pattern:
-
-## 1. Saga Pattern
-
-Die **Buchung** und die **Zahlung** bilden gemeinsam eine verteilte Transaktion.
-
-- Jeder Microservice führt nur seine lokale Transaktion aus.
-- Nach erfolgreicher Ausführung sendet der Service ein Event.
-- Es gibt keinen globalen Transaktionsmanager (z. B. kein Two-Phase Commit).
-- Jeder Schritt ist atomar und kommuniziert über asynchrone Events mit den anderen Teilnehmern.
-
-> Vorteil: Hohe Entkopplung der Services und gute Skalierbarkeit durch Event-basierte Kommunikation.
+  | Feature                     | Umsetzung                                                |
+  | --------------------------- | -------------------------------------------------------- |
+  | JWT Validierung             | Am Gateway & in jedem Service (Signatur, Ablauf, Issuer) |
+  | Rollenbasierte Prüfung      | Rollen im Token prüfen (z. B. `ROLE_ADMIN`, `ROLE_USER`) |
+  | Scope-basiertes Access Mgmt | Zugriff granular pro Endpunkt erlauben                   |
+  | Tokenverschlüsselung        | Über TLS (HTTPS) & optional JWE (verschlüsselte JWTs)    |
+  | Logging & Auditing          | Zugriff & Fehlversuche zentral protokollieren            |
 
 ---
 
-## 2. Outbox Pattern – Zuverlässige Event-Zustellung
+### Teil B – Domain Design: Buchungsservice
 
-Beim Schreiben in die Datenbank und dem gleichzeitigen Versenden eines Events kann ein Event verloren gehen, etwa bei einem plötzlichen Absturz des Services.
+#### 1. Wichtige Entities, Value Objects und Aggregate Root
 
-Das Outbox Pattern verhindert dieses Problem durch:
+```mermaid
+classDiagram
+    class Booking {
+        +BookingId Id
+        +CustomerId CustomerId
+        +RoomId RoomId
+        +DateTime From
+        +DateTime To
+        +BookingStatus Status
+        +decimal TotalAmount
+        +static Booking ReserveRoom(CustomerId, RoomId, DateTime, DateTime)
+        +void Cancel(string reason)
+    }
+    class RoomId
+    class CustomerId
+    class Money {
+        +decimal Amount
+        +string Currency
+    }
+    Booking o-- RoomId
+    Booking o-- CustomerId
+    Booking o-- Money : TotalAmount
+```
 
-- Speichern des Events in einer Outbox-Tabelle in derselben Datenbank-Transaktion wie die Geschäftsdaten.
-- Ein separater Prozess (z. B. Event Publisher) liest die Outbox regelmäßig aus und versendet Events zuverlässig.
-- Gesendete Events werden z. B. durch ein Flag markiert oder gelöscht – Doppelsendungen werden vermieden.
+* **Aggregate Root:** `Booking`
+* **Entities:** `Booking`
+* **Value Objects:** `RoomId`, `CustomerId`, `Money`
 
-> Vorteil: Zuverlässige Zustellung ohne Dateninkonsistenzen – die Event-Publikation ist eng mit der Buchung verknüpft.
+#### 2. Domain Events
+
+* `BookingCreated(BookingId, CustomerId, RoomId, From, To)`
+* `BookingCancelled(BookingId, Reason)`
+* `BookingConfirmed(BookingId)`
+
+#### 3. Use Case / Command Handler Beispiel
+
+```csharp
+public class CreateBookingCommand {
+    public Guid CustomerId { get; }
+    public Guid RoomId { get; }
+    public DateTime From { get; }
+    public DateTime To { get; }
+}
+
+public class CreateBookingHandler {
+    private readonly IBookingRepository _repo;
+    private readonly IMessageBus _bus;
+
+    public CreateBookingHandler(IBookingRepository repo, IMessageBus bus) {
+        _repo = repo;
+        _bus = bus;
+    }
+
+    public async Task Handle(CreateBookingCommand cmd) {
+        var booking = Booking.ReserveRoom(cmd.CustomerId, cmd.RoomId, cmd.From, cmd.To);
+        await _repo.AddAsync(booking);
+        await _bus.Publish(new BookingCreated(booking.Id, cmd.CustomerId, cmd.RoomId, cmd.From, cmd.To));
+    }
+}
+```
+
+#### 4. UML-Klassendiagramm
+
+```mermaid
+classDiagram
+    class Booking {
+        +BookingId Id
+        +CustomerId CustomerId
+        +RoomId RoomId
+        +DateTime From
+        +DateTime To
+        +BookingStatus Status
+        +static Booking ReserveRoom(CustomerId, RoomId, DateTime, DateTime)
+        +void Cancel(string reason)
+    }
+    class BookingCreatedEvent {
+        +BookingId Id
+        +CustomerId CustomerId
+        +RoomId RoomId
+        +DateTime From
+        +DateTime To
+    }
+    Booking --> BookingCreatedEvent
+```
 
 ---
 
-## 3. Idempotenz – Wiederholbarkeit sicherstellen
+## Aufgabe 2: Cloud & DevOps – Bereitstellung in Azure
 
-Alle Event-Konsumenten (z. B. der Payment Service) müssen idempotent implementiert sein:
+### 1. Azure-Dienste
 
-- Ein Event kann aus verschiedenen Gründen mehrfach ankommen.
-- Die Verarbeitung darf keine unerwünschten Seiteneffekte erzeugen – selbst wenn das Event doppelt oder mehrfach verarbeitet wird.
+* **Container-Orchestrierung:** Azure Kubernetes Service (AKS)
+* **Serverless:** Azure Functions (z. B. für Benachrichtigungen)
+* **Datenbanken:** Azure SQL Database (relationale Daten), Cosmos DB (Dokumente/Audit Logs)
+* **Cache:** Azure Cache for Redis
+* **Messaging:** Azure Service Bus
+* **API Gateway:** Azure API Management
+* **Storage:** Azure Blob Storage (Backups, Invoice-PDFs)
 
-> Beispiel: Eine Zahlung darf nicht zweimal ausgelöst werden, wenn das Event zweimal verarbeitet wird.
-
----
-
-# Infrastrukturkomponenten
+### 2. CI/CD-Implementierung
 
 ```mermaid
 flowchart TD
-    subgraph External["Externe Clients"]
-        Client[Client]
-    end
-
-    subgraph Gateway["API Gateway"]
-        APIGW["API Gateway\n- Auth\n- Rate Limiting\n- Routing"]
-    end
-
-    subgraph Auth["Authentication Provider"]
-        AuthService["Auth Service\n- JWT\n- SSO"]
-    end
-
-    subgraph Registry["Service Registry"]
-        ServiceRegistry["Service Registry\n- Discovery\n- Load Balancing"]
-    end
-
-    subgraph Broker["Message Broker"]
-        MsgBroker["Message Broker\n- Events\n- Sagas\n- Retry"]
-    end
-
-    subgraph Outbox["Outbox / Event Store"]
-        OutboxSys["Outbox/Event Store\n- Garantierte Events\n- Konsistenz"]
-    end
-
-    subgraph Secrets["Secrets Management"]
-        SecretsManager["Secrets Manager\n- Token Mgmt\n- Rotation"]
-    end
-
-    subgraph Monitoring["Monitoring & Tracing"]
-        MonitoringSys["Monitoring\n- Metriken\n- Traces\n- Logs"]
-    end
-
-    subgraph Orchestration["Container Orchestrator"]
-        OrchestratorSys["Orchestrator\n- Auto Scaling\n- Updates"]
-    end
-
-    subgraph CICD["CI/CD Pipeline"]
-        Pipeline["CI/CD\n- Build\n- Deployment\n- Tests"]
-    end
-
-    subgraph Storage["Storage & Datenbanken"]
-        DB1["Service A DB"]
-        DB2["Service B DB"]
-        DB3["Service C DB"]
-    end
-
-    subgraph Services["Microservices"]
-        ServiceA["Service A"]
-        ServiceB["Service B"]
-        ServiceC["Service C"]
-    end
-
-    Client --> APIGW
-    APIGW --> AuthService
-    APIGW --> ServiceRegistry
-    APIGW --> ServiceA
-    APIGW --> ServiceB
-    APIGW --> ServiceC
-
-    ServiceA --> DB1
-    ServiceB --> DB2
-    ServiceC --> DB3
-
-    ServiceA --> MsgBroker
-    ServiceB --> MsgBroker
-    ServiceC --> MsgBroker
-
-    MsgBroker --> ServiceA
-    MsgBroker --> ServiceB
-    MsgBroker --> ServiceC
-
-    ServiceA --> OutboxSys
-    ServiceB --> OutboxSys
-    ServiceC --> OutboxSys
-
-    ServiceA --> SecretsManager
-    ServiceB --> SecretsManager
-    ServiceC --> SecretsManager
-
-    ServiceA --> MonitoringSys
-    ServiceB --> MonitoringSys
-    ServiceC --> MonitoringSys
-
-    OrchestratorSys --> ServiceA
-    OrchestratorSys --> ServiceB
-    OrchestratorSys --> ServiceC
-
-    Pipeline --> OrchestratorSys
-    Pipeline --> APIGW
-    Pipeline --> Services
-
-    MonitoringSys --> SLA["SLA & Fehleranalyse"]
+    A[Developer Commit] --> B["Azure Pipelines / GitHub Actions (CI)"]
+    B --> C[Build & Test]
+    C --> D["Docker Image Push<br>nach Azure Container Registry (ACR)"]
+    D --> E["Update Kubernetes Deployment YAML<br>mit neuem Image-Tag"]
+    E --> F["Push ins GitOps Repository (z. B. GitHub)"]
+    F --> G["ArgoCD (CD)"]
+    G --> H[Vergleich Git vs. Cluster-State]
+    H --> I["Sync ins Kubernetes Cluster (AKS)"]
 ```
 
-## API Gateway
+* **Code-Repository:** GitHub oder Azure Repos
+* **Pipelines:** Azure DevOps Pipelines oder GitHub Actions
 
-- **Funktion:** Zentrale Schnittstelle für externe Clients
-- **Details:**
-  - Bündelt alle REST-Endpunkte
-  - Setzt Authentifizierung, Rate Limiting und Routing um
+  1. **Build:** Kompilierung, Unit Tests, Docker-Image erstellen
+  2. **Push:** Image in Azure Container Registry
+  3. **IaC:** Deployment via Terraform oder Bicep
+  4. **Deploy:** Helm-Charts in AKS / ARM-Templates
+* **GitOps:** ArgoCD für deklarative Deployments
+
+### 3. Monitoring, Logging und Alerting
+
+Eine effektive Überwachung und Analyse ist unerlässlich für Betrieb, Fehlersuche und SLA-Erfüllung. Die folgenden Komponenten bilden das Observability-Fundament:
+
+* **Application Insights:**
+
+  * Tracing einzelner HTTP- und Service-Aufrufe
+  * Live Metrics, Performance-Messungen und Verfügbarkeits-Tests
+  * Integration mit .NET SDK für automatische Telemetrieerfassung
+
+* **Azure Monitor & Log Analytics:**
+
+  * Zentrale Sammlung und Abfrage von Logs
+  * Unterstützung für strukturierte Abfragen mit Kusto Query Language (KQL)
+  * Visualisierung über Workbooks oder Dashboards
+
+* **Alerting:**
+
+  * Schwellenwert-basierte Alarme auf Metriken (z. B. CPU, Fehlerquote)
+  * Log-basierte Alarme (z. B. Fehler in Applikationslogs)
+  * Anbindung an E-Mail, Teams, SMS oder ITSM-Systeme
+
+* **Dashboards:**
+
+  * Eigene Azure Dashboards pro Umgebung/Service
+  * Darstellung von KPIs, Response-Times, Error Rates etc.
+  * Kombinierbar mit Application Map zur Visualisierung von Abhängigkeiten
+
+* **Application Insights:** Distributed Tracing, Metriken, Live Metrics Stream
+
+* **Azure Monitor:** Log Analytics Workspace für zentrale Log-Sammlung
+
+* **Alerts:** Definition von Metrik- und Log-basierten Alerts in Azure Monitor
+
+* **Dashboards:** Individuelle Azure Dashboards für System- und Business-KPIs
+
+### 4. Skalierbarkeit, Ausfallsicherheit & Wartbarkeit
+
+Ein robustes Systemdesign berücksichtigt dynamische Last, Fehlerfälle und Wartbarkeit:
+
+* **Autoscaling:**
+
+  * Horizontal Pod Autoscaler (HPA) skaliert einzelne Services auf CPU/Last
+  * Cluster Autoscaler passt Node-Anzahl automatisch an
+
+* **Multi-Region-Deployment:**
+
+  * Aktive/Passive-Strategie mit Azure Traffic Manager
+  * Disaster Recovery durch Georedundanz und Datenbank-Replikation
+  * Zentrales Backup z. B. über Azure Backup oder blobbasiert
+
+* **Deployment-Strategien:**
+
+  * **Rolling Updates:** Standardstrategie mit geringer Downtime
+  * **Blue/Green Deployment:** Zwei parallele Umgebungen, sicheres Umschalten
+  * **Canary Releases:** Teilweise Freigabe für bestimmte Nutzergruppen zur Risikominimierung
+
+* **Fehlertoleranz & Resilienz:**
+
+  * Retry-Strategien, Circuit Breaker (z. B. Polly in .NET)
+  * Graceful Degradation (Fallback-Verhalten bei Ausfall)
+  * Timeouts, Bulkheads zur Isolierung von Fehlerdomänen
+
+* **Chaos Engineering:**
+
+  * Absichtliches Einführen von Fehlern mit Azure Chaos Studio
+  * Prüfung auf Robustheit bei realistischen Störungen
+
+* **Wartbarkeit & Transparenz:**
+
+  * Dokumentation über OpenAPI (Swagger)
+  * Tracing, Logzugriff und Metriken für DevOps
+  * SLA-Dokumentation, Incident Response Prozesse
+
+* **Autoscaling:** Horizontal Pod Autoscaler & Cluster Autoscaler in AKS
+
+* **Multi-Region-Deployment:** Aktive Region + Passiver DR-Standby (Read Replica)
+
+* **Deployments:** Rolling Updates, Blue/Green oder Canary Releases via Helm
+
+* **Resilienz:** Circuit Breaker & Retry Policies (z. B. mit Polly)
+
+* **Chaos Engineering:** Azure Chaos Studio für Ausfalltests
+
+* **Dokumentation & SLA:** OpenAPI-Spezifikationen, service level agreements
 
 ---
-
-## Service Registry
-
-- **Funktion:** Verzeichnis für verfügbare Services
-- **Details:**
-  - Ermöglicht dynamisches Service Discovery & Load Balancing
-  - Unterstützt Resilienz und horizontale Skalierung
-
----
-
-## Message Broker
-
-- **Funktion:** Asynchrone Kommunikation & Eventing
-- **Details:**
-  - Ermöglicht lose Kopplung zwischen Services
-  - Unterstützt Sagas, Events & Retry-Mechanismen
-
----
-
-## Outbox System / Event Store
-
-- **Funktion:** Garantierte Event-Zustellung
-- **Details:**
-  - Verhindert Eventverlust bei Serviceabstürzen
-  - Garantiert Konsistenz zwischen Datenbankoperationen und Events
-
----
-
-## Authentication Provider
-
-- **Funktion:** Authentifizierung & Token-Handling
-- **Details:**
-  - Zentrale User-Identität und Single Sign-On (SSO)
-  - Liefert JWTs für Zugriffskontrolle auf Services
-
----
-
-## Secrets Management
-
-- **Funktion:** Sichere Verwaltung von Passwörtern, Tokens etc.
-- **Details:**
-  - Verhindert hartcodierte Geheimnisse
-  - Ermöglicht zentrale Rotation und Zugriffskontrolle
-
----
-
-## Monitoring & Tracing
-
-- **Funktion:** Überwachung & Fehlerdiagnose
-- **Details:**
-  - Erfasst Metriken, Logs und verteilte Traces
-  - Unterstützt SLA-Einhaltung und Ursachenanalyse
-
----
-
-## Container Orchestrator
-
-- **Funktion:** Deployment, Skalierung, Isolation von Services
-- **Details:**
-  - Führt Microservices containerisiert aus
-  - Ermöglicht Auto-Scaling, Self-Healing und Rolling Updates
-
----
-
-## CI/CD Pipeline
-
-- **Funktion:** Automatisierter Build & Deployment
-- **Details:**
-  - Sichert schnelle, wiederholbare Auslieferung
-  - Unterstützt Rollbacks & automatisierte Tests
-
----
-
-## Storage & Datenbanken
-
-- **Funktion:** Persistente Datenspeicherung pro Service
-- **Details:**
-  - Jeder Service besitzt eine eigene Datenbank ("Database per Service")
-  - Ermöglicht gezielte Optimierung und Datenisolation
