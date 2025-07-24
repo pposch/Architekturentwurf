@@ -14,7 +14,7 @@
 
 ```mermaid
 flowchart TD
-    A[Developer Commit] --> B["Azure Pipelines / GitHub Actions (CI)"]
+    A[Developer Commit/PR] --> B["Azure Pipelines / GitHub Actions (CI)"]
     B --> C[Build & Test]
     C --> D["Docker Image Push<br>nach Azure Container Registry (ACR)"]
     D --> E["Update Kubernetes Deployment YAML<br>mit neuem Image-Tag"]
