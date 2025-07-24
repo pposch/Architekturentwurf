@@ -5,9 +5,9 @@
 ```mermaid
 classDiagram
     class Booking {
-        +BookingId Id
-        +CustomerId CustomerId
-        +RoomId RoomId
+        +Booking Id
+        +Customer CustomerId
+        +Room RoomId
         +DateTime From
         +DateTime To
         +BookingStatus Status
@@ -15,14 +15,14 @@ classDiagram
         +static Booking ReserveRoom(CustomerId, RoomId, DateTime, DateTime)
         +void Cancel(string reason)
     }
-    class RoomId
-    class CustomerId
+    class Room
+    class Customer
     class Money {
         +decimal Amount
         +string Currency
     }
-    Booking o-- RoomId
-    Booking o-- CustomerId
+    Booking o-- Room
+    Booking o-- Customer
     Booking o-- Money : TotalAmount
 ```
 
@@ -65,12 +65,20 @@ public class CreateBookingHandler {
 
 #### 4. UML-Klassendiagramm
 
+Das folgende UML-Diagramm zeigt die wichtigsten Klassen, ihre Beziehungen und Methoden rund um den Aggregatstamm `Booking`. Es illustriert, wie Buchungen modelliert werden und wie daraus Domain Events wie `BookingCreatedEvent` entstehen.
+
+- **Booking** ist die zentrale Domänenklasse mit allen buchungsrelevanten Informationen.
+- Sie enthält Methoden zur Erstellung und Stornierung einer Buchung.
+- Über die Methode `ReserveRoom(...)` wird ein neues Booking erstellt.
+- Nach erfolgreicher Erstellung wird ein `BookingCreatedEvent` generiert und an das Messaging-System übergeben.
+
+
 ```mermaid
 classDiagram
     class Booking {
-        +BookingId Id
-        +CustomerId CustomerId
-        +RoomId RoomId
+        +Booking Id
+        +Customer CustomerId
+        +Room RoomId
         +DateTime From
         +DateTime To
         +BookingStatus Status
@@ -78,9 +86,9 @@ classDiagram
         +void Cancel(string reason)
     }
     class BookingCreatedEvent {
-        +BookingId Id
-        +CustomerId CustomerId
-        +RoomId RoomId
+        +Booking Id
+        +Customer CustomerId
+        +Room RoomId
         +DateTime From
         +DateTime To
     }
